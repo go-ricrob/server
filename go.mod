@@ -3,13 +3,16 @@ module github.com/go-ricrob/server
 go 1.20
 
 require (
-	github.com/go-ricrob/exec v0.0.9
-	github.com/go-ricrob/game v0.0.6
+	github.com/go-ricrob/exec v0.0.10
+	github.com/go-ricrob/game v0.0.7
 )
 
-require golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
+require golang.org/x/exp v0.0.0-20230728194245-b0cb94b80691 // indirect
 
 //replace (
 //	github.com/go-ricrob/exec => ../exec
 //	github.com/go-ricrob/exec/task => ../exec/task
+//
+//	github.com/go-ricrob/game => ../game
+//	github.com/go-ricrob/game/board => ../game/board
 //)

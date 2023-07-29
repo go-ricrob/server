@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -13,6 +14,9 @@ import (
 	// Add profiling.
 	_ "net/http/pprof"
 )
+
+//go:embed asciiart.txt
+var asciiart string
 
 func getStringEnv(key, defValue string) string {
 	value, ok := os.LookupEnv(key)
@@ -39,11 +43,10 @@ func usage(name, envName string) string {
 }
 
 func main() {
+	logger := log.Default()
 	var host, port, solverList string
 
-	//f := new(flags)
-	//fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	//fmt.Fprintf(fs.Output(), "%s\n", ASCIIArt)
+	fmt.Println(asciiart)
 
 	// flags
 	flag.StringVar(&host, fnHost, getStringEnv(envHost, "localhost"), usage(fnHost, envHost))
@@ -51,12 +54,13 @@ func main() {
 	flag.StringVar(&solverList, fnSolvers, getStringEnv(envSolvers, ""), usage(fnSolvers, envSolvers))
 	flag.Parse()
 
-	logger := log.Default()
 	solvers := strings.Split(solverList, ",")
 
 	logger.Printf("Runtime Info - GOMAXPROCS %d NumCPU %d \n", runtime.GOMAXPROCS(0), runtime.NumCPU())
 	logger.Printf("Solvers %v \n", solvers)
 
 	server := server.New(logger, host, port, solvers)
-	server.ListenAndServe()
+	if err := server.ListenAndServe(); err != nil {
+		logger.Fatal(err)
+	}
 }

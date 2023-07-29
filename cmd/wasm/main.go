@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Go Web Assembly Hello")
+	fmt.Println("Hello from the ricrob go web assembly")
 
 	newGame()
 
@@ -17,26 +17,12 @@ func main() {
 	<-done
 }
 
-type V js.Value
-
-func (v V) Global() Global     { return Global{Value: js.Value(v)} }
-func (v V) Window() Window     { return Window{Value: js.Value(v)} }
-func (v V) Document() Document { return Document{Value: js.Value(v)} }
-func (v V) Style() Style       { return Style{Value: js.Value(v)} }
-func (v V) Element() Element   { return Element{Value: js.Value(v)} }
-func (v V) Event() Event       { return Event{Value: js.Value(v)} }
-
-func (v V) Body() Body           { return Body{Element: v.Element()} }
-func (v V) Div() Div             { return Div{Element: v.Element()} }
-func (v V) Canvas() Canvas       { return Canvas{Element: v.Element()} }
-func (v V) Context2d() Context2d { return Context2d{Element: v.Element()} }
-
 type Global struct {
 	js.Value
 }
 
-func (v Global) Window() Window     { return V(v.Get("window")).Window() }
-func (v Global) Document() Document { return V(v.Get("document")).Document() }
+func (v Global) Window() Window     { return Window{Value: v.Get("window")} }
+func (v Global) Document() Document { return Document{Value: v.Get("document")} }
 
 type Event struct {
 	js.Value
@@ -50,7 +36,7 @@ func (v Window) InnerWidth() int  { return v.Get("innerWidth").Int() }
 func (v Window) InnerHeight() int { return v.Get("innerHeight").Int() }
 func (v Window) AddEventListener(ev string, fn func(Event)) {
 	v.Call("addEventListener", ev, js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fn(V(this).Event())
+		fn(Event{Value: this})
 		return nil
 	}))
 }
@@ -59,10 +45,14 @@ type Document struct {
 	js.Value
 }
 
-func (v Document) Body() Body { return V(v.Get("body")).Body() }
+func (v Document) Body() Body { return Body{Element: Element{Value: v.Value.Get("body")}} }
 
-func (v Document) CreateDiv() Div       { return V(v.Call("createElement", "div")).Div() }
-func (v Document) CreateCanvas() Canvas { return V(v.Call("createElement", "canvas")).Canvas() }
+func (v Document) CreateDiv() Div {
+	return Div{Element: Element{Value: v.Call("createElement", "div")}}
+}
+func (v Document) CreateCanvas() Canvas {
+	return Canvas{Element{Value: v.Call("createElement", "canvas")}}
+}
 
 type Style struct {
 	js.Value
@@ -75,8 +65,8 @@ type Element struct {
 	js.Value
 }
 
-func (v Element) Style() Style                 { return V(v.Get("style")).Style() }
-func (v Element) AppendChild(child js.Wrapper) { v.Call("appendChild", child.JSValue()) }
+func (v Element) Style() Style               { return Style{v.Get("style")} }
+func (v Element) AppendChild(child js.Value) { v.Call("appendChild", child) }
 
 type Body struct {
 	Element
@@ -95,7 +85,9 @@ func (v Canvas) Height() int          { return v.Get("height").Int() }
 func (v Canvas) SetWidth(width int)   { v.Set("width", width) }
 func (v Canvas) SetHeight(height int) { v.Set("height", height) }
 
-func (v Canvas) GetContext() Context2d { return V(v.Call("getContext", "2d")).Context2d() }
+func (v Canvas) GetContext() Context2d {
+	return Context2d{Element: Element{Value: v.Call("getContext", "2d")}}
+}
 
 type Context2d struct {
 	Element
@@ -117,10 +109,11 @@ type game struct {
 }
 
 func newGame() *game {
-	document := V(js.Global()).Global().Document()
+	global := Global{Value: js.Global()}
+	document := Global{Value: js.Global()}.Document()
 	div := document.CreateDiv()
-	document.Body().AppendChild(div)
-	return &game{board: newBoard(div)}
+	document.Body().AppendChild(div.Value)
+	return &game{board: newBoard(global, div)}
 }
 
 const (
@@ -128,22 +121,21 @@ const (
 )
 
 type board struct {
+	window Window
 	layers []Canvas
 }
 
-func newBoard(div Div) *board {
-	document := V(js.Global()).Global().Document()
-	b := &board{layers: make([]Canvas, numLayer)}
+func newBoard(global Global, div Div) *board {
+	b := &board{window: global.Window(), layers: make([]Canvas, numLayer)}
 	for i := 0; i < numLayer; i++ {
-		canvas := document.CreateCanvas()
+		canvas := global.Document().CreateCanvas()
 		canvas.Style().SetPosition("absolute")
 		canvas.Style().SetZIndex(i)
-		div.AppendChild(canvas)
+		div.AppendChild(canvas.Value)
 		b.layers[i] = canvas
 	}
 
-	window := V(js.Global()).Global().Window()
-	window.AddEventListener("resize", b.onResize)
+	b.window.AddEventListener("resize", b.onResize)
 	b.redraw()
 	return b
 }
@@ -151,10 +143,8 @@ func newBoard(div Div) *board {
 func (b *board) onResize(e Event) { println("resize"); b.redraw() }
 
 func (b *board) redraw() {
-	window := V(js.Global()).Global().Window()
-
-	width := window.InnerWidth()
-	height := window.InnerHeight()
+	width := b.window.InnerWidth()
+	height := b.window.InnerHeight()
 	size := 0
 	if width > height {
 		size = height

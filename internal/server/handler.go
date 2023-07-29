@@ -21,14 +21,6 @@ func writeError(w http.ResponseWriter, httpError int, err error) {
 	}
 }
 
-func writeResponse(w http.ResponseWriter, response any) {
-	if b, jsonErr := json.Marshal(response); jsonErr != nil {
-		writeError(w, http.StatusInternalServerError, jsonErr)
-	} else {
-		w.Write(b)
-	}
-}
-
 func boardHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid http method %s", r.Method))
@@ -49,7 +41,11 @@ func boardHandler(w http.ResponseWriter, r *http.Request) {
 		board.BottomRight: tiles.BottomRight,
 	})
 
-	writeResponse(w, board)
+	response, err := json.Marshal(board.Fields)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+	}
+	w.Write(response)
 }
 
 type solveHandler struct {
@@ -64,7 +60,7 @@ func (h *solveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := task.NewByURL(r.URL)
+	args, err := task.ParseURL(r.URL)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -75,10 +71,14 @@ func (h *solveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	eventCh := h.execCmd.execute(t)
+	eventCh := h.execCmd.execute(args.CmdArgs())
 
 	for event := range eventCh {
-		writeResponse(w, event)
+		if event.err != nil {
+			writeError(w, http.StatusInternalServerError, event.err)
+		} else {
+			w.Write(event.result)
+		}
 		flusher.Flush()
 	}
 }

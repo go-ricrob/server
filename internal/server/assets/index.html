@@ -3,10 +3,10 @@
   <head>
 		<meta charset="utf-8"/>
     <title>go-ricrob</title>
-  	<script src="assets/wasm_exec.js"></script>
+  	<script src="wasm_exec.js"></script>
 		<script>
 			const go = new Go();
-			WebAssembly.instantiateStreaming(fetch("assets/ricrob.wasm"), go.importObject).then((result) => {
+			WebAssembly.instantiateStreaming(fetch("ricrob.wasm"), go.importObject).then((result) => {
 			  go.run(result.instance);
 			}).catch((err) => {
         console.error(err);

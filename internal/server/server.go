@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"embed"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -16,24 +17,8 @@ import (
 
 // content is our static web server content.
 //
-//go:embed index.html
 //go:embed assets
-var content embed.FS
-
-// const (
-// 	docRoot = "www"
-// )
-
-// rootFS
-type rootFS struct {
-	fs http.FileSystem
-}
-
-func (fs rootFS) Open(name string) (http.File, error) {
-	// TODO try to 're-route' to docRoot
-	log.Println(name)
-	return fs.fs.Open(name)
-}
+var embeddedFS embed.FS
 
 // Server represents a ricrob server.
 type Server struct {
@@ -53,33 +38,38 @@ func New(logger *log.Logger, host, port string, solvers []string) *Server {
 }
 
 // ListenAndServe starts the server listening and serving content.
-func (s *Server) ListenAndServe() {
+func (s *Server) ListenAndServe() error {
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
+
+	//mime.AddExtensionType(".wasm", "application/wasm")
+	//mime.AddExtensionType("js", "text/javascript")
+	rootFS, err := fs.Sub(embeddedFS, "assets")
+	if err != nil {
+		return err
+	}
 
 	execCmd := newExecCmd(s.solvers, s.logger)
 
 	http.HandleFunc("/board", boardHandler)
 	http.Handle("/solve", &solveHandler{execCmd: execCmd})
 	http.HandleFunc("/favicon.ico", func(http.ResponseWriter, *http.Request) {}) // Avoid "/" handler call for browser favicon request.
-	http.Handle("/", http.FileServer(rootFS{http.FS(content)}))
+	http.Handle("/", http.FileServer(http.FS(rootFS)))
 
 	addr := net.JoinHostPort(s.host, s.port)
 	//svr := http.Server{Addr: addr, Handler: mux}
 	svr := http.Server{Addr: addr}
-	log.Printf("listening on %s ...\n", addr)
+	s.logger.Printf("listening on %s ...\n", addr)
 
 	go func() {
 		if err := svr.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal(err)
+			s.logger.Fatal(err)
 		}
 	}()
 
 	<-sigint
 	// shutdown server
-	log.Println("shutting down...")
+	s.logger.Println("shutting down...")
 
-	if err := svr.Shutdown(context.Background()); err != nil {
-		log.Fatalf("HTTP server Shutdown: %v", err)
-	}
+	return svr.Shutdown(context.Background())
 }
