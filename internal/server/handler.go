@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-ricrob/exec/task"
 	"github.com/go-ricrob/game/board"
+	"github.com/go-ricrob/server/internal/exec"
 )
 
 type errorResponse struct {
@@ -49,7 +50,7 @@ func boardHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type solveHandler struct {
-	execCmd *execCmd
+	execer *exec.Execer
 }
 
 func (h *solveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -71,13 +72,13 @@ func (h *solveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	eventCh := h.execCmd.execute(args.CmdArgs())
+	resultCh := h.execer.Run(args.CmdArgs())
 
-	for event := range eventCh {
-		if event.err != nil {
-			writeError(w, http.StatusInternalServerError, event.err)
+	for result := range resultCh {
+		if result.Err != nil {
+			writeError(w, http.StatusInternalServerError, result.Err)
 		} else {
-			w.Write(event.result)
+			w.Write(result.Response)
 		}
 		flusher.Flush()
 	}

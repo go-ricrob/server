@@ -1,4 +1,5 @@
-package server
+// Package exec runs solvers.
+package exec
 
 import (
 	"bufio"
@@ -11,31 +12,34 @@ import (
 	"sync"
 )
 
-const maxCh = 100
-
-type event struct {
-	result []byte
-	err    error
+// Result represents a solver result.
+type Result struct {
+	Response []byte
+	Err      error
 }
 
-type execCmd struct {
+// Execer represents the solvers to be run.
+type Execer struct {
 	solvers []string
 	logger  *log.Logger
 }
 
-func newExecCmd(solvers []string, logger *log.Logger) *execCmd {
-	return &execCmd{solvers: solvers, logger: logger}
+// New creates a new Execer instance.
+func New(solvers []string, logger *log.Logger) *Execer {
+	return &Execer{solvers: solvers, logger: logger}
 }
 
-func (e *execCmd) execute(args []string) <-chan *event {
-	eventCh := make(chan *event, maxCh)
+// Run runs the registered solvers.
+func (e *Execer) Run(args []string) <-chan *Result {
+	numSolvers := len(e.solvers)
+	eventCh := make(chan *Result, numSolvers)
 	ctx := context.Background()
 
 	go func() {
 		wg := new(sync.WaitGroup)
-		wg.Add(len(e.solvers))
+		wg.Add(numSolvers)
 		for _, solver := range e.solvers {
-			go e.executeSolver(ctx, wg, solver, args, eventCh)
+			go e.runSolver(ctx, wg, solver, args, eventCh)
 		}
 		wg.Wait()
 		close(eventCh)
@@ -43,7 +47,7 @@ func (e *execCmd) execute(args []string) <-chan *event {
 	return eventCh
 }
 
-func (e *execCmd) isResult(b []byte) bool {
+func isResult(b []byte) bool {
 	m := make(map[string]any)
 	if err := json.Unmarshal(b, &m); err != nil {
 		return false
@@ -63,11 +67,11 @@ func (e *execCmd) isResult(b []byte) bool {
 
 var errResultNotFound = errors.New("result not found")
 
-func (e *execCmd) executeSolver(ctx context.Context, wg *sync.WaitGroup, solver string, args []string, eventCh chan<- *event) {
+func (e *Execer) runSolver(ctx context.Context, wg *sync.WaitGroup, solver string, args []string, resultCh chan<- *Result) {
 	defer wg.Done()
 
-	event := new(event)
-	event.result, event.err = func() ([]byte, error) {
+	result := new(Result)
+	result.Response, result.Err = func() ([]byte, error) {
 
 		var result []byte
 		cmd := exec.CommandContext(ctx, solver, args...)
@@ -91,7 +95,7 @@ func (e *execCmd) executeSolver(ctx context.Context, wg *sync.WaitGroup, solver 
 		outScanner := bufio.NewScanner(stdout)
 		for outScanner.Scan() {
 			b := outScanner.Bytes()
-			if e.isResult(b) {
+			if isResult(b) {
 				result = b
 			}
 			fmt.Println(string(b))
@@ -118,5 +122,5 @@ func (e *execCmd) executeSolver(ctx context.Context, wg *sync.WaitGroup, solver 
 		return result, nil
 
 	}()
-	eventCh <- event
+	resultCh <- result
 }
