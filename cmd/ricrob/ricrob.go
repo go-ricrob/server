@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -58,6 +59,11 @@ func main() {
 	flag.Parse()
 
 	solvers := strings.Split(solverList, ",")
+	for i := 0; i < len(solvers); i++ {
+		if path, err := filepath.Abs(solvers[i]); err == nil {
+			solvers[i] = path
+		}
+	}
 
 	logger.Printf("Runtime Info - GOMAXPROCS %d NumCPU %d \n", runtime.GOMAXPROCS(0), runtime.NumCPU())
 	logger.Printf("Solvers %v \n", solvers)

@@ -18,3 +18,7 @@
 cmd/ricrob/ricrob
 internal/server/assets/ricrob.wasm
 
+# Others
+.vscode/launch.json
+
+
