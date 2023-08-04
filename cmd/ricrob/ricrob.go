@@ -62,8 +62,8 @@ func main() {
 	logger.Printf("Runtime Info - GOMAXPROCS %d NumCPU %d \n", runtime.GOMAXPROCS(0), runtime.NumCPU())
 	logger.Printf("Solvers %v \n", solvers)
 
-	exec := exec.New(solvers, logger)
-	server, err := server.New(logger, host, port, exec, solvers)
+	execer := exec.New(solvers, logger)
+	server, err := server.New(logger, host, port, execer, solvers)
 	if err != nil {
 		logger.Fatal(err)
 	}
