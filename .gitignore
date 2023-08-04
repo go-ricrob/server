@@ -16,3 +16,5 @@
 
 # Executables
 cmd/ricrob/ricrob
+internal/server/assets/ricrob.wasm
+
