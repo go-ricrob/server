@@ -3,7 +3,7 @@ module github.com/go-ricrob/server
 go 1.20
 
 require (
-	github.com/go-ricrob/exec v0.0.12
+	github.com/go-ricrob/exec v0.0.14
 	github.com/go-ricrob/game v0.0.7
 )
 
